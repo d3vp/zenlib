@@ -73,5 +73,8 @@ from tests.data import *
 from tests.community import *
 from tests.communityset import *
 
+# cacti test
+from tests.cacti import *
+
 if __name__ == '__main__':
 	unittest.main()
