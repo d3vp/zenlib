@@ -31,4 +31,5 @@ clean:
 	rm -f zen/generating/*.c zen/generating/*.so zen/generating/*.pyc; \
 	rm -f zen/io/*.c zen/io/*.so zen/io/*.pyc; \
 	rm -f zen/layout/*.c zen/layout/*.so zen/layout/*.pyc; \
-	rm -f zen/util/fiboheap.c zen/util/queue.c zen/util/*.so zen/util/*.pyc;
+	rm -f zen/util/fiboheap.c zen/util/queue.c zen/util/*.so zen/util/*.pyc; \
+	rm -rf zen/algorithms/matching.cpp

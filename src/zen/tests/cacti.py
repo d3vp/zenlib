@@ -14,14 +14,14 @@ class CactiUnweightedMatching(unittest.TestCase):
         cacti = control.build_cacti(G)
         self.assertEqual(cacti.num_controls(),1)
 
-        controls = cacti.controls()
+        controls = cacti.controls_()
         self.assertEqual(controls[0][0],G.node_idx('x'))
 
         # change the graph
         G.rm_edge('y','z')
         cacti = control.build_cacti(G)
         self.assertEqual(cacti.num_controls(),2)
-        controls = set(cacti.controls())
+        controls = set(cacti.controls_())
         sol1 = set([(G.node_idx('x'),),(G.node_idx('z'),)])
         sol2 = set([(G.node_idx('x'),),(G.node_idx('y'),)])
         self.assertTrue(controls == sol1 or controls == sol2)
@@ -45,7 +45,7 @@ class CactiUnweightedMatching(unittest.TestCase):
         cacti = control.build_cacti(G)
         self.assertEqual(cacti.num_controls(),1)
 
-        controls = set(cacti.controls()[0])
+        controls = set(cacti.controls_()[0])
         self.assertTrue(len(c1.intersection(controls)) == 1)
         self.assertTrue(len(c2.intersection(controls)) == 1)
         self.assertTrue(len(c3.intersection(controls)) == 1)
@@ -89,7 +89,7 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
             ctls = set( randint(len(G)) for _ in xrange(randint(1,len(G))) )
             ctls = [tuple([a]) for a in ctls]
 
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True)
 
         NC = cact.num_controllable_nodes()
         K = control.reachability.kalman_generic_rank(G, ctls)
@@ -122,7 +122,7 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
         G.add_edge_(4,3)
 
         ctls = [(0,)]
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True, with_cycles=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True, with_cycles=True)
         self.assertEqual(cact.num_controllable_nodes(),5)
 
     def test_stem_cycle2(self):
@@ -134,7 +134,7 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
         G.add_edge_(4,3)
 
         ctls = [(0,)]
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True)
         self.assertEqual(cact.num_controllable_nodes(),3)
 
     def test_stem_cycle3(self):
@@ -146,7 +146,7 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
         G.add_edge_(4,3)
 
         ctls = [(3,)]
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True)
         self.assertEqual(cact.num_controllable_nodes(),2)
 
     def test_stem_bud1(self):
@@ -159,7 +159,7 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
         G.add_edge_(4,3)
 
         ctls = [(0,)]
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True)
         self.assertEqual(cact.num_controllable_nodes(),5)
 
     def test_stem_bud2(self):
@@ -172,7 +172,7 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
         G.add_edge_(4,3)
 
         ctls = [(1,)]
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True)
         self.assertEqual(cact.num_controllable_nodes(),4)
 
     def test_cacti_form1(self):
@@ -185,17 +185,17 @@ class CactiWeightedMatchingFixedControls(unittest.TestCase):
         G.add_edge_(4,3)
 
         ctls = [(0,)]
-        cact = control.build_cacti(G, forced_ctls=ctls, shuffle=True)
+        cact = control.build_cacti_fixed_controls_(G, ctls, randomize=True)
         stems, cycles = cact.stems(), cact.cycles()
 
         self.assertEqual(len(stems), 1)
         self.assertEqual(len(cycles), 1)
-        self.assertEqual(stems[0].origin(), 0)
-        self.assertEqual(cycles[0].origin(), 3)
+        self.assertEqual(stems[0].origin_(), 0)
+        self.assertEqual(cycles[0].origin_(), 3)
         self.assertEqual(len(stems[0].buds()), 1)
 
         self.assertIsNotNone(cycles[0].stem())
-        self.assertEqual(cycles[0].dist_node(),1)
+        self.assertEqual(cycles[0].dist_node_(),1)
 
 if __name__ == '__main__':
     unittest.main()

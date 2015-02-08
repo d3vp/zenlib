@@ -113,3 +113,30 @@ def kalman_generic_rank(G,controls,repeats=100):
 	
 	return rank
 
+#TODO move appropriate code from zen.matching  here
+def control_rooted_max_weight_matching_(G, **kwargs):
+    """
+        Find maximum weighted matchinh for given Directed Graph ``G``
+
+        **KwArgs**:
+            *``controls[=None]`` (LIST_OF_TUPLES)
+                *``LIST_OF_TUPLES``: Reprsenting control nodes that are
+                attached to the nodes in G e.g. [(1,),(3,)] represents two controls
+                that are attached to node indices 1 and 3.
+                When controls is not given (or None), the result will consist
+                of matching such that all cycles will be found (because cycles don't
+                need any controls.)
+            *``randomize[=False]`` (``Boolean``). Indicates whether the matching
+                should be randomized
+            *``with_cycles[=False]`` (``Boolean``). Indicates whether
+                independent cycles not reachable from the ``controls`` should be
+                included in the matching
+
+        **Returns**:
+            ``(n,M,R)``: where ``n`` (int) is number of matched nodes.
+                        ``M`` is a list of edge indices representing the matching
+                        ``R`` is a list of node indices representing origins of
+                        the stems.
+    """
+    return zen.matching.__max_weight_matching(G, **kwargs)
+

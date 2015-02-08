@@ -5,24 +5,28 @@ For information cacti structures, see the following reference:
 Commault, Dion, Van der Woude. Characterization of generic properties of linear structured systems for efficient computations. Kybernetika, 38(5):503-520, 2002.
 """
 import sys, zen
-from zen.control.reachability import generic_rank_
-from zen.util.max_weight_bmatching import control_rooted_max_weight_matching
+from zen.control.reachability import generic_rank_, control_rooted_max_weight_matching_
 from collections import OrderedDict
 from numpy import *
+from exceptions import *
 import itertools as it
 sys.setrecursionlimit(2**27)
 
 class Stem:
     """
-    An instance of this class represents a single stem (and any associated buds) in a cacti structure.
+    An instance of :py:class:`Stem` represents a single stem (and any associated buds) in a cacti structure.
     """
 
     def __init__(self,node_seq):
+        """
+            Creates a new :py:class:`Stem` from a sequence of nodes given by
+            ``node_seq``.
+        """
         self._node_dict = OrderedDict.fromkeys(node_seq)
 
     def __contains__(self,x):
         """
-        Return True if x is a node in the stem (containment doesn't extend to buds).
+        Return ``True`` if ``x`` is a node in the stem (containment doesn't extend to buds).
         """
         return x in self._node_dict
 
@@ -41,15 +45,15 @@ class Stem:
     def _clear(self):
         self._node_dict.clear()
 
-    def origin(self):
+    def origin_(self):
         """
-        The origin or starting node of the stem
+        Return the origin or starting node (index) of the stem
         """
         return next(self._node_dict.iterkeys(), None)
 
-    def terminus(self):
+    def terminus_(self):
         """
-        The terminus or end node of the stem
+        Returns the terminus or end node (index) of the stem.
         """
         x = None
         for x in self._node_dict.iterkeys():
@@ -62,7 +66,7 @@ class Stem:
 
     def length_with_buds(self):
         """
-         Returns length of stem including the buds attached to it
+         Returns length of stem including the buds attached to it.
         """
         l = len(self._node_dict)
         for bud in self._node_dict.itervalues():
@@ -72,7 +76,7 @@ class Stem:
 
     def _add_bud(self,dnode,cycle,dnode_target):
         cycle._reorder_origin(dnode_target)
-        if dnode == self.terminus():
+        if dnode == self.terminus_():
             self._extend(cycle)
             return False
         else:
@@ -94,9 +98,14 @@ class Stem:
 
 class Cycle:
     """
-    Cycles can either be buds that are connected to a stem by a distinguished node or independent cycles (no associated stem).
+    :py:class:Cycle can either be a bud that is connected to a stem by a
+    distinguished node or an independent cycle (no associated stem).
     """
     def __init__(self,node_seq):
+        """
+            Creates a new :py:class:`Cycle` from a sequence of nodes given by
+            ``node_seq``.
+        """
         self._node_dict = OrderedDict.fromkeys(node_seq)
         self._stem = None
         self._dnode = None
@@ -122,7 +131,7 @@ class Cycle:
     def _clear(self):
         self._node_dict.clear()
 
-    def origin(self):
+    def origin_(self):
         """
         A starting node of this cycle  (in case of bud this is the node where
         distinguished edge is pointing to)
@@ -149,9 +158,9 @@ class Cycle:
         """
         return self._stem
 
-    def dist_node(self):
+    def dist_node_(self):
         """
-        Return distinguished node of the stem to which this cycle is attached
+        Return distinguished node (index) of the stem to which this cycle is attached
         if it is a bud, otherwise returh None
         """
         return self._dnode
@@ -203,44 +212,75 @@ def _stems_cycs_from_matching(matching, roots=None, origins=[]):
     return stems, cycs
 
 
-def build_cacti(G, forced_ctls=None, num_ctls=None, shuffle=False, with_cycles=False):
+def build_cacti_fixed_controls(G, fixed_ctls, **kwargs):
     """
-    This method constructs cacti for a given directed graph G.
-    (The nodes in forced_ctls  should be indices of DiGraph nodes and not node objects)
-    Inputs: 1) A directed Graph G
-            2) if forced_ctls is not None, it has to be a list of tuples
-            representing controls. Each tuple represents a control node such
-            that the control is to be attached to each node in the tuple. For
-            example, [(1,), (4,)] would mean that two controls are attached to
-            nodes 1 and 4 respectively. Use this option for when controls are
-            fixed. Weigthed maximum matching is performed.
-            3) num_ctls : This option is not implemented yet and should be kept
-            None
-            4) if shuffle is True, matching algorithm is randomized so that
-            each call to build cacti would result in a different cacti
-            structure. This option is implemented yet for case of unweighted
-            maximum matching
-            5) if forced_ctls is given, with_cycles option dictates whether any
-            independent cycles that are not reachable from the forced_ctls
-            controls should be included in the cacti
-            6) if none of the force_ctls or num_ctls is given, unweighted
-            matching is performed such that minimum number of controls required
-            is calculated and the cacti represents the corresponding maximum matching
+    This method constructs :py:class:`Cacti` for a given directed graph ``G``
+    and set of controls that are fixed to some nodes in G. Maximum perfect
+    weighted matching is used to calculate reachable/controllable nodes given
+    the fixed controls.
 
-    Returns Cacti object
+    **Args**: see method build_cacti_fixed_controls_
+              Only difference here is that fixed_ctls are node objs and not
+              indices.
+
+    Returns a py:class:`Cacti` object
     """
+    ctls = [tuple(G.node_idx(a) for a in c) for c in fixed_ctls]
+    return build_cacti_fixed_controls_(G, ctls, **kwargs)
+
+
+def build_cacti_fixed_controls_(G, fixed_ctls, **kwargs):
+    """
+    This method constructs :py:class:`Cacti` for a given directed graph ``G``
+    and set of controls that are fixed to some nodes in G. Maximum perfect
+    weighted matching is used to calculate reachable/controllable nodes given
+    the fixed controls.
+
+    **Args**:
+
+            *``fixed_ctls`` (``LIST_OF_TUPLES``)
+                *``LIST_OF_TUPLES``: Represents control nodes that are
+                attached to the nodes in G. e.g. [(1,),(3,)] represents two controls
+                that are attached to node indices 1 and 3 in G.
+
+    **KwArgs**:
+        *``randomize[=False]`` (``Boolean``). Indicates whether the matching
+            should be randomized
+        *``with_cycles[=False]`` (``Boolean``). Indicates whether
+            independent cycles not reachable from the ``fixed_ctls`` should be
+            included in the matching/cacti
+
+    **Raises**:
+            ``ZenException``: if fixed_ctls is None
+
+    Returns a py:class:`Cacti` object
+    """
+
     cact = Cacti(G)
 
-    if forced_ctls is not None:
-        cact._forced_control_case(forced_ctls, shuffle, with_cycles)
-    elif num_ctls is not None:
-        cact._free_control_case(num_ctls, shuffle)
-    else:
-        cact._min_controls_case()
+    if fixed_ctls is None:
+        raise ZenException, "fixed_ctls cannot be None."
+
+    cact._fixed_control_case(fixed_ctls, **kwargs)
 
     cact._build_cacti_from_stemscycles()
     return cact
 
+
+def build_cacti(G):
+    """
+    This method constructs :py:class:`Cacti` for a given directed graph ``G``
+    using maximum unweighted matching. The resulting matching forms a cacti
+    which also gives the minimum number and locations of controls required for the full control.
+
+    Returns a py:class:`Cacti` object
+    """
+    cact = Cacti(G)
+
+    cact._min_controls_case()
+
+    cact._build_cacti_from_stemscycles()
+    return cact
 
 class Cacti:
     """
@@ -260,7 +300,7 @@ class Cacti:
 
     def num_controls(self):
         """
-        Return number of controls inputs
+        Return number of controls inputs nodes.
         """
         return len(self._controls)
 
@@ -292,17 +332,17 @@ class Cacti:
 
         self._cycles = [c for c in self._cycles if len(c) > 0]
 
-        controls = [ [stem.origin()] for stem in self._stems ]
+        controls = [ [stem.origin_()] for stem in self._stems ]
 
         if controls:
             idx = 0
             for cyc in self._cycles:
                 if not cyc.is_bud():
-                    controls[idx].append(cyc.origin())
+                    controls[idx].append(cyc.origin_())
                     idx = (idx+1) % len(controls)
             controls = [tuple(a) for a in controls]
         else:
-            controls = [ tuple(cyc.origin() for cyc in self._cycles) ]
+            controls = [ tuple(cyc.origin_() for cyc in self._cycles) ]
 
         self._controls = controls
 
@@ -313,10 +353,9 @@ class Cacti:
 
 
     # To find minimum controls required to fully control a network using
-    # Unweighted maximum
-    # Matching
+    # Unweighted maximum Matching
     def _min_controls_case(self):
-        #TODO Shuffle
+        #TODO Randomize matching
         G = self._G
         matching = set(zen.matching.maximum_matching_(G))
         matching = [G.endpoints_(eidx) for eidx in matching]
@@ -325,26 +364,23 @@ class Cacti:
             stems.append(Stem([u]))
         self._matching, self._stems, self._cycles = matching, stems, cycles
 
+
     # To find cacti and hence controllable nodes given a fixed set of controls
-    # (forced_ctls) using maximum weighted matching
-    def _forced_control_case(self, forced_ctls, doshuffle=False, indcyc=False):
+    # (fixed_ctls) using maximum weighted matching
+    def _fixed_control_case(self, fixed_ctls, **kwargs):
+        kwargs['controls'] = fixed_ctls
         G = self._G
-        origins = [a for b in forced_ctls for a in b]
-        matching,roots = control_rooted_max_weight_matching(G, forced_ctls,
-                doshuffle=doshuffle, indcyc=indcyc)[1:3]
+        origins = [a for b in fixed_ctls for a in b]
+        matching,roots = control_rooted_max_weight_matching_(G, **kwargs)[1:3]
         matching = [G.endpoints_(eidx) for eidx in matching]
         self._stems, self._cycles = _stems_cycs_from_matching(matching, roots, origins)
         self._matching = matching
 
 
-    def _free_control_case(self, num_ctls, doshuffle=False):
-        raise NotImplementedError("Yet to be implemented.")
-
-
-    def controls(self):
+    def controls_(self):
         """
-        Returns list of the controls that are required for maximum control of
-        the network. In case of unweigthed matching, it is the minimum number
+        Returns list of nodes (indices) where controls should be attached. 
+        In case of unweighted matching, it is the minimum number
         of controls required for full control of the network. In case of
         weighted matching (when fixed set of controls are given), this method
         returns the controls that are sufficent for controlling the maximum
@@ -352,9 +388,9 @@ class Cacti:
         """
         return list(self._controls)
 
-    def controllable_nodes(self):
+    def controllable_nodes_(self):
         """
-        Returns set of nodes that are controllable
+        Returns set of nodes indices that are controllable
         """
         return set(self._controllable_nodes)
 
@@ -364,9 +400,9 @@ class Cacti:
         """
         return len(self._controllable_nodes)
 
-    def matching(self):
+    def matching_(self):
         """
-        Return  matching as calculated by the maximum matching algorithm (unweighted or weighted as the case maybe)
+        Returns a  matching (a list of edges; an edge is a tuple of node indices (u,v)) as calculated by the maximum matching algorithm (unweighted or weighted as the case maybe)
         """
         return list(self._matching)
 

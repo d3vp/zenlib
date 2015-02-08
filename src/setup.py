@@ -38,16 +38,14 @@ Extension('zen.algorithms.shortest_path', ['zen/algorithms/shortest_path.pyx'], 
 Extension('zen.algorithms.properties', ['zen/algorithms/properties.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.modularity', ['zen/algorithms/modularity.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.spanning', ['zen/algorithms/spanning.pyx'], include_dirs=[numpy_include_dir, fiboheap_include_dir]),
-Extension('zen.algorithms.matching', ['zen/algorithms/matching.pyx'], include_dirs=[numpy_include_dir]),
+Extension('zen.algorithms.matching', ['zen/algorithms/matching.pyx'], language='c++', include_dirs=[numpy_include_dir], libraries=['python2.7','m','util','dl']),
 Extension('zen.generating.rgm', ['zen/generating/rgm.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.community.communityset', ['zen/algorithms/community/communityset.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.community.overlapping_communityset', ['zen/algorithms/community/overlapping_communityset.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.community.lpa', ['zen/algorithms/community/lpa.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.community.label_rank', ['zen/algorithms/community/label_rank.pyx'], include_dirs=[numpy_include_dir]),
 Extension('zen.algorithms.community.spectral_modularity', ['zen/algorithms/community/spectral_modularity.pyx'], include_dirs=[numpy_include_dir]),
-Extension('zen.algorithms.community.louvain', ['zen/algorithms/community/louvain.pyx'], include_dirs=[numpy_include_dir]),
-Extension('zen.util.max_weight_bmatching', ['zen/util/max_weight_bmatching.pyx'], \
-    language='c++', include_dirs=[fiboheap_include_dir], libraries=['python2.7','m','util','dl'] )]
+Extension('zen.algorithms.community.louvain', ['zen/algorithms/community/louvain.pyx'], include_dirs=[numpy_include_dir])]
 
 
 setup(
