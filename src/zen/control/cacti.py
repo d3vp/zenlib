@@ -19,8 +19,7 @@ class Stem:
 
     def __init__(self,node_seq):
         """
-            Creates a new :py:class:`Stem` from a sequence of nodes given by
-            ``node_seq``.
+            Creates a new :py:class:`Stem` from a sequence of nodes given by ``node_seq``.
         """
         self._node_dict = OrderedDict.fromkeys(node_seq)
 
@@ -42,9 +41,6 @@ class Stem:
         """
         return self._node_dict.iterkeys()
 
-    def _clear(self):
-        self._node_dict.clear()
-
     def origin_(self):
         """
         Return the origin or starting node (index) of the stem
@@ -61,8 +57,19 @@ class Stem:
         return x
 
     def _extend(self, nodes):
+        """
+        Extend stem by adding nodes at the end. Needed when a bud is attached
+        at terminus of the stem, in which case the bud is broken down and stem
+        is extended.
+        """
         for u in nodes:
             self._node_dict[u] = None
+
+    def _set_bud(self, x, bud):
+        """
+        Private method to add bud to a node x in this stem.
+        """
+        self._node_dict[x] = bud
 
     def length_with_buds(self):
         """
@@ -74,15 +81,6 @@ class Stem:
                 l += len(bud)
         return l
 
-    def _add_bud(self,dnode,cycle,dnode_target):
-        cycle._reorder_origin(dnode_target)
-        if dnode == self.terminus_():
-            self._extend(cycle)
-            return False
-        else:
-            self._node_dict[dnode] = cycle
-            cycle._set_stem(self, dnode)
-            return True
 
     def buds(self):
         """
@@ -128,17 +126,22 @@ class Cycle:
         """
         return self._node_dict.iterkeys()
 
-    def _clear(self):
-        self._node_dict.clear()
-
     def origin_(self):
         """
-        A starting node of this cycle  (in case of bud this is the node where
-        distinguished edge is pointing to)
+        A starting node of this cycle,  in case of bud this is the node where
+        distinguished edge is pointing to. In case of non-bud cycle, returns
+        None
         """
+        if not self.is_bud():
+            return None
+
         return next(self._node_dict.iterkeys(), None)
 
     def _reorder_origin(self, x):
+        """
+        Private method to make target node of the distinguished edge as the
+        origin of this cycle when this cycle is a bud.
+        """
         if x not in self._node_dict.iterkeys():
             return
         toremove = list(it.takewhile(lambda a: a!=x, self._node_dict.iterkeys()))
@@ -148,6 +151,10 @@ class Cycle:
             self._node_dict[k] = t
 
     def _set_stem(self,stem,dnode):
+        """
+        Private method to set stem and distinguished node of this cycle when
+        this cycle is a bud.
+        """
         self._stem = stem
         self._dnode = dnode
 
@@ -156,6 +163,9 @@ class Cycle:
         Return stem to which this cycle is attached if it is a bud, otherwise
         return None
         """
+        if not self.is_bud():
+            return None
+
         return self._stem
 
     def dist_node_(self):
@@ -163,7 +173,21 @@ class Cycle:
         Return distinguished node (index) of the stem to which this cycle is attached
         if it is a bud, otherwise returh None
         """
+        if not self.is_bud():
+            return None
+
         return self._dnode
+
+    def dist_edge_(self):
+        """
+        Return distinguished edge (u,v) (node indices) where u is in the stem
+        and v is in this cycle/bud of the stem.
+        Returns None if this cycle is not a bud.
+        """
+        if not self.is_bud():
+            return None
+
+        return (self._dnode, self.origin_())
 
     def is_bud(self):
         """
@@ -290,6 +314,9 @@ class Cacti:
     """
 
     def __init__(self,G):
+        """
+        Private constructor. Should not be used directly. build_cacti methods should be used, which return Cacti object.
+        """
         self._G = G
 
         self._stems = []
@@ -325,12 +352,17 @@ class Cacti:
         for stem in self._stems:
             for u in stem:
                 for v in self._G.out_neighbors_(u):
-                    cyc = [c for c in self._cycles if not c.is_bud() and v in c]
-                    if cyc:
-                        if not stem._add_bud(u,cyc[0],v):
-                            cyc[0]._clear()
+                    for icyc,cyc in enumerate(self._cycles):
+                        if not cyc.is_bud() and v in cyc:
+                            cyc._reorder_origin(v)
+                            if u == stem.terminus_():
+                                stem._extend(cyc)
+                                self._cycles[icyc] = None
+                            else:
+                                stem._set_bud(u, cyc)
+                                cyc._set_stem(stem, u)
 
-        self._cycles = [c for c in self._cycles if len(c) > 0]
+        self._cycles = [c for c in self._cycles if c is not None and len(c) > 0]
 
         controls = [ [stem.origin_()] for stem in self._stems ]
 
@@ -338,11 +370,11 @@ class Cacti:
             idx = 0
             for cyc in self._cycles:
                 if not cyc.is_bud():
-                    controls[idx].append(cyc.origin_())
+                    controls[idx].append(list(cyc)[0])
                     idx = (idx+1) % len(controls)
             controls = [tuple(a) for a in controls]
         else:
-            controls = [ tuple(cyc.origin_() for cyc in self._cycles) ]
+            controls = [ tuple(list(cyc)[0] for cyc in self._cycles) ]
 
         self._controls = controls
 
