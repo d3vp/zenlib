@@ -17,11 +17,12 @@ class Stem:
     An instance of :py:class:`Stem` represents a single stem (and any associated buds) in a cacti structure.
     """
 
-    def __init__(self,node_seq):
+    def __init__(self,Gi,node_seq):
         """
             Creates a new :py:class:`Stem` from a sequence of nodes given by ``node_seq``.
         """
         self._node_dict = OrderedDict.fromkeys(node_seq)
+        self._G = Gi
 
     def __contains__(self,x):
         """
@@ -41,11 +42,23 @@ class Stem:
         """
         return self._node_dict.iterkeys()
 
+    def origin(self):
+        """
+        Return the origin or starting node (object) of the stem
+        """
+        return  self._G.node_object(self.origin_())
+
     def origin_(self):
         """
         Return the origin or starting node (index) of the stem
         """
         return next(self._node_dict.iterkeys(), None)
+
+    def terminus(self):
+        """
+        Returns the terminus or end node (object) of the stem.
+        """
+        return self._G.node_object(self.terminus_())
 
     def terminus_(self):
         """
@@ -99,12 +112,13 @@ class Cycle:
     :py:class:Cycle can either be a bud that is connected to a stem by a
     distinguished node or an independent cycle (no associated stem).
     """
-    def __init__(self,node_seq):
+    def __init__(self, Gi, node_seq):
         """
             Creates a new :py:class:`Cycle` from a sequence of nodes given by
             ``node_seq``.
         """
         self._node_dict = OrderedDict.fromkeys(node_seq)
+        self._G = Gi
         self._stem = None
         self._dnode = None
 
@@ -126,16 +140,23 @@ class Cycle:
         """
         return self._node_dict.iterkeys()
 
+    def origin(self):
+        """
+        A starting node (object) of this cycle,  in case of bud this is the node where
+        distinguished edge is pointing to. In case of non-bud cycle, returns None
+        """
+        res = self.origin_()
+        return None if res == -1 else self._G.node_object(res)
+
     def origin_(self):
         """
-        A starting node of this cycle,  in case of bud this is the node where
-        distinguished edge is pointing to. In case of non-bud cycle, returns
-        None
+        A starting node (index) of this cycle,  in case of bud this is the node where
+        distinguished edge is pointing to. In case of non-bud cycle, returns -1
         """
         if not self.is_bud():
-            return None
+            return  -1
 
-        return next(self._node_dict.iterkeys(), None)
+        return next(self._node_dict.iterkeys(), -1)
 
     def _reorder_origin(self, x):
         """
@@ -168,26 +189,41 @@ class Cycle:
 
         return self._stem
 
+    def dist_node(self):
+        """
+        Return distinguished node (object) of the stem to which this cycle is attached
+        if it is a bud, otherwise return None
+        """
+        res = self.dist_node_()
+        return None if res == -1 else self._G.node_object(res)
+
     def dist_node_(self):
         """
         Return distinguished node (index) of the stem to which this cycle is attached
-        if it is a bud, otherwise returh None
+        if it is a bud, otherwise return -1
         """
         if not self.is_bud():
-            return None
+            return -1
 
         return self._dnode
 
-    def dist_edge_(self):
+    def dist_edge(self):
         """
-        Return distinguished edge (u,v) (node indices) where u is in the stem
-        and v is in this cycle/bud of the stem.
+        Return distinguished edge (u,v) (node objects) where u is in the stem and v is in this cycle/bud of the stem.
         Returns None if this cycle is not a bud.
         """
-        if not self.is_bud():
-            return None
+        res = self.dist_edge_()
+        return None if res == -1 else self._G.endpoints(res)
 
-        return (self._dnode, self.origin_())
+    def dist_edge_(self):
+        """
+        Return distinguished edge e (edge index) where src(e) is in the stem and tgt(e) is in this cycle/bud of the stem.
+        Returns -1 if this cycle is not a bud.
+        """
+        if not self.is_bud():
+            return -1
+
+        return self._G.edge_idx_(self._dnode, self.origin_())
 
     def is_bud(self):
         """
@@ -196,7 +232,7 @@ class Cycle:
         return self._stem != None
 
 # helper function to construct stems and cycles from a given matching
-def _stems_cycs_from_matching(matching, roots=None, origins=[]):
+def _stems_cycs_from_matching(Gi, matching, roots=None, origins=[]):
     outmap = {a:b for a,b in matching}
     vis = set()
     indegmap = {}
@@ -209,14 +245,14 @@ def _stems_cycs_from_matching(matching, roots=None, origins=[]):
 
     def recur(z,cur,stems,cycs):
         if z in vis:
-            cycs.append(Cycle(cur))
+            cycs.append(Cycle(Gi, cur))
             return
 
         vis.add(z)
         cur.append(z)
 
         if z not in outmap:
-            stems.append(Stem(cur))
+            stems.append(Stem(Gi, cur))
             return
 
         recur(outmap[z],cur,stems,cycs)
@@ -249,6 +285,9 @@ def build_cacti_fixed_controls(G, fixed_ctls, **kwargs):
 
     Returns a py:class:`Cacti` object
     """
+    if fixed_ctls is None:
+        raise ValueError, "fixed_ctls cannot be None."
+
     ctls = [tuple(G.node_idx(a) for a in c) for c in fixed_ctls]
     return build_cacti_fixed_controls_(G, ctls, **kwargs)
 
@@ -275,15 +314,15 @@ def build_cacti_fixed_controls_(G, fixed_ctls, **kwargs):
             included in the matching/cacti
 
     **Raises**:
-            ``ZenException``: if fixed_ctls is None
+            ``ValueError``: if fixed_ctls is None
 
     Returns a py:class:`Cacti` object
     """
 
-    cact = Cacti(G)
-
     if fixed_ctls is None:
-        raise ZenException, "fixed_ctls cannot be None."
+        raise ValueError, "fixed_ctls cannot be None."
+
+    cact = Cacti(G)
 
     cact._fixed_control_case(fixed_ctls, **kwargs)
 
@@ -391,9 +430,9 @@ class Cacti:
         G = self._G
         matching = set(zen.matching.maximum_matching_(G))
         matching = [G.endpoints_(eidx) for eidx in matching]
-        stems, cycles = _stems_cycs_from_matching(matching)
+        stems, cycles = _stems_cycs_from_matching(G, matching)
         for u in set(G.nodes_iter_()).difference(set(x for y in matching for x in y)) :
-            stems.append(Stem([u]))
+            stems.append(Stem(G, [u]))
         self._matching, self._stems, self._cycles = matching, stems, cycles
 
 
@@ -405,9 +444,21 @@ class Cacti:
         origins = [a for b in fixed_ctls for a in b]
         matching,roots = control_rooted_max_weight_matching_(G, **kwargs)[1:3]
         matching = [G.endpoints_(eidx) for eidx in matching]
-        self._stems, self._cycles = _stems_cycs_from_matching(matching, roots, origins)
+        self._stems, self._cycles = _stems_cycs_from_matching(G, matching, roots, origins)
         self._matching = matching
 
+
+    def controls(self):
+        """
+        Returns list of nodes (objects) where controls should be attached. 
+        In case of unweighted matching, it is the minimum number
+        of controls required for full control of the network. In case of
+        weighted matching (when fixed set of controls are given), this method
+        returns the controls that are sufficent for controlling the maximum
+        possible nodes of the network.
+        """
+        ctls = self.controls_()
+        return [tuple(self._G.node_object(x) for x in t) for t in ctls]
 
     def controls_(self):
         """
@@ -419,6 +470,12 @@ class Cacti:
         possible nodes of the network.
         """
         return list(self._controls)
+
+    def controllable_nodes(self):
+        """
+        Returns set of nodes objects that are controllable
+        """
+        return set([self._G.node_object(a) for a in self._controllable_nodes])
 
     def controllable_nodes_(self):
         """
@@ -432,9 +489,15 @@ class Cacti:
         """
         return len(self._controllable_nodes)
 
+    def matching(self):
+        """
+        Returns a  matching in form of a list of edges (u,v) where u and v are node objects, as calculated by the maximum matching algorithm (unweighted or weighted as the case maybe)
+        """
+        return [self._G.endpoints(e) for e in self.matching_()]
+
     def matching_(self):
         """
-        Returns a  matching (a list of edges; an edge is a tuple of node indices (u,v)) as calculated by the maximum matching algorithm (unweighted or weighted as the case maybe)
+        Returns a  matching, a list of edge indices as calculated by the maximum matching algorithm (unweighted or weighted as the case maybe)
         """
-        return list(self._matching)
+        return [self._G.edge_idx_(u,v) for u,v in self._matching]
 
